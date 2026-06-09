@@ -46,3 +46,13 @@ sample_data/hr_attrition_v1.csv
 sample_data/hr_attrition_v2.csv
 sample_data/sensor_data.csv
 uv.lock
+
+# Frontend & Backend dynamic files
+frontend/node_modules/
+frontend/.next/
+backend/chroma_db/
+backend/awip.db
+*.pdf
+*.docx
+*.csv
+*.zip

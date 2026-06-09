@@ -1,64 +1,47 @@
-import requests
+import os
 import json
+from google import genai
+from google.genai import types
 
 class LLMEngine:
-    """Interface to local Ollama server.
+    """Interface to Google Gemini LLM API (Fastest & Highest Quality).
     
-    LLM is explicitly OPTIONAL. The system works perfectly without it using
-    intelligent rule-based explanations. When Ollama is available, it adds
-    depth and natural language richness — but it is never required.
+    If the GEMINI_API_KEY is not provided, the system will instantly fall back
+    to high-speed deterministic rule-based explanations, completely avoiding
+    the slow performance and hanging associated with local Ollama instances.
     """
     
-    _ollama_available: bool | None = None  # cached health check result
-
-    def __init__(self, model_name="llama3", base_url="http://localhost:11434"):
+    def __init__(self, model_name="gemini-2.5-flash"):
         self.model_name = model_name
-        self.base_url = base_url
+        self.api_key = os.environ.get("GEMINI_API_KEY")
+        self.client = genai.Client(api_key=self.api_key) if self.api_key else None
 
     @classmethod
     def check_available(cls) -> bool:
-        """Check if Ollama is reachable. Result is cached for the process lifetime."""
-        if cls._ollama_available is not None:
-            return cls._ollama_available
-        try:
-            resp = requests.get("http://localhost:11434/api/tags", timeout=3)
-            cls._ollama_available = resp.status_code == 200
-        except Exception:
-            cls._ollama_available = False
-        return cls._ollama_available
+        """Check if Gemini API Key is configured."""
+        return bool(os.environ.get("GEMINI_API_KEY"))
     
     @classmethod
     def reset_availability(cls):
-        """Force re-check on next call (useful if Ollama was started after the server)."""
-        cls._ollama_available = None
+        pass
 
     def generate(self, prompt, system="You are an AI data science assistant.", max_tokens=256):
-        # Skip the HTTP call entirely if Ollama is known to be unreachable
-        if not LLMEngine.check_available():
+        if not self.client:
             return ""
         
         try:
-            response = requests.post(
-                f"{self.base_url}/api/generate",
-                json={
-                    "model": self.model_name,
-                    "prompt": prompt,
-                    "system": system,
-                    "stream": False,
-                    "options": {
-                        "num_predict": max_tokens,
-                        "temperature": 0.3
-                    }
-                },
-                timeout=30
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system,
+                    temperature=0.3,
+                    max_output_tokens=max_tokens,
+                ),
             )
-            if response.status_code == 200:
-                return response.json().get("response", "").strip()
-            else:
-                return ""
-        except Exception:
-            # Mark as unavailable so future calls skip immediately
-            LLMEngine._ollama_available = False
+            return response.text.strip() if response.text else ""
+        except Exception as e:
+            print(f"[LLMEngine] Gemini API Error: {e}")
             return ""
 
     def reason_about_workflow(self, signals, steps, user_level):

@@ -232,6 +232,39 @@
       "score": -0.0037,
       "features_added": 0,
       "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_180828",
+      "timestamp": "2026-06-09T18:08:28.864156",
+      "dataset_name": "tesla_deliveries_dataset_2015_2025.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": -0.0037,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_181455",
+      "timestamp": "2026-06-09T18:14:55.938683",
+      "dataset_name": "predictive_maintenance.csv",
+      "task_type": "binary_classification",
+      "domain": "auto-detect",
+      "winner_model": "XGBoost",
+      "score": 0.9965,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_182938",
+      "timestamp": "2026-06-09T18:29:38.079515",
+      "dataset_name": "predictive_maintenance.csv",
+      "task_type": "binary_classification",
+      "domain": "auto-detect",
+      "winner_model": "XGBoost",
+      "score": 0.9965,
+      "features_added": 0,
+      "key_issues": []
     }
   ],
   "domain_patterns": {
@@ -263,8 +296,14 @@
     },
     "regression": {
       "Ridge Regression": {
-        "count": 14,
-        "avg_score": 0.2268642857142857
+        "count": 15,
+        "avg_score": 0.21149333333333334
+      }
+    },
+    "binary_classification": {
+      "XGBoost": {
+        "count": 2,
+        "avg_score": 0.9965
       }
     }
   }

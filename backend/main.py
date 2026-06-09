@@ -357,7 +357,7 @@ async def upload_dataset(file: UploadFile = File(...)):
         # Persist to SQLite
         session_state.save()
 
-        return {
+        return _json_safe({
             "status": "success", 
             "dataset": file.filename, 
             "rows": signals.n_rows,
@@ -368,7 +368,7 @@ async def upload_dataset(file: UploadFile = File(...)):
             "column_details": signals.column_details,
             "target_candidates": signals.target_candidates,
             "intelligence_findings": signals.intelligence_findings,
-        }
+        })
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
