@@ -2,6 +2,7 @@
 
 import { useWorkspaceStore } from "@/store/workspaceStore"
 import { Database, Target, Trophy, Activity, ArrowRight, Lightbulb, ChevronDown } from "lucide-react"
+import { getApiBase } from "@/lib/api"
 
 export default function OverviewView() {
   const datasetIntelligence = useWorkspaceStore((state) => state.datasetIntelligence) as any
@@ -59,14 +60,14 @@ export default function OverviewView() {
             </button>
             <div className="absolute right-0 mt-2 w-56 bg-[#111111] border border-neutral-800 rounded shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
               <a 
-                href="http://localhost:8000/api/export/jupyter" 
+                href={`${getApiBase()}/api/export/jupyter`} 
                 download
                 className="block px-4 py-3 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors border-b border-neutral-800"
               >
                 Jupyter Notebook (.ipynb)
               </a>
               <a 
-                href="http://localhost:8000/api/export/deployment" 
+                href={`${getApiBase()}/api/export/deployment`} 
                 download
                 className="block px-4 py-3 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors"
               >
