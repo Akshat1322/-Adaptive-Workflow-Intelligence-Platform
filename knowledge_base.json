@@ -1,0 +1,183 @@
+{
+  "experiments": [
+    {
+      "id": "EXP_20260608_181508",
+      "timestamp": "2026-06-08T18:15:08.622578",
+      "dataset_name": "HR Attrition v1",
+      "task_type": "multiclass_classification",
+      "domain": "hr",
+      "winner_model": "LogisticRegression",
+      "score": 0.5273,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260608_181745",
+      "timestamp": "2026-06-08T18:17:45.134323",
+      "dataset_name": "Country-data",
+      "task_type": "regression",
+      "domain": "general",
+      "winner_model": "Ridge Regression",
+      "score": 0.0,
+      "features_added": 0,
+      "key_issues": [
+        "Outliers detected in 6 columns"
+      ]
+    },
+    {
+      "id": "EXP_20260608_231643",
+      "timestamp": "2026-06-08T23:16:43.968083",
+      "dataset_name": "Country-data.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": 0.0,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260608_232517",
+      "timestamp": "2026-06-08T23:25:17.755089",
+      "dataset_name": "Country-data.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": 0.0,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260608_232818",
+      "timestamp": "2026-06-08T23:28:18.038665",
+      "dataset_name": "Country-data.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": 0.0,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260608_233158",
+      "timestamp": "2026-06-08T23:31:58.782565",
+      "dataset_name": "Country-data.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": 0.0,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_142606",
+      "timestamp": "2026-06-09T14:26:06.820645",
+      "dataset_name": "hr_attrition_v1.csv",
+      "task_type": "multiclass_classification",
+      "domain": "auto-detect",
+      "winner_model": "LogisticRegression",
+      "score": 0.315,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_142745",
+      "timestamp": "2026-06-09T14:27:45.673588",
+      "dataset_name": "hr_attrition_v1.csv",
+      "task_type": "multiclass_classification",
+      "domain": "auto-detect",
+      "winner_model": "LogisticRegression",
+      "score": 0.315,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_142909",
+      "timestamp": "2026-06-09T14:29:09.468722",
+      "dataset_name": "hr_attrition_v1.csv",
+      "task_type": "multiclass_classification",
+      "domain": "auto-detect",
+      "winner_model": "LogisticRegression",
+      "score": 0.315,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_143016",
+      "timestamp": "2026-06-09T14:30:16.559326",
+      "dataset_name": "hr_attrition_v1.csv",
+      "task_type": "multiclass_classification",
+      "domain": "auto-detect",
+      "winner_model": "LogisticRegression",
+      "score": 0.315,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_143706",
+      "timestamp": "2026-06-09T14:37:06.013678",
+      "dataset_name": "hr_attrition_v2.csv",
+      "task_type": "multiclass_classification",
+      "domain": "auto-detect",
+      "winner_model": "XGBoost",
+      "score": 0.0,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_143835",
+      "timestamp": "2026-06-09T14:38:35.052642",
+      "dataset_name": "hr_attrition_v2.csv",
+      "task_type": "multiclass_classification",
+      "domain": "auto-detect",
+      "winner_model": "XGBoost",
+      "score": 0.0,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_144926",
+      "timestamp": "2026-06-09T14:49:26.081481",
+      "dataset_name": "Country-data.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": 0.0,
+      "features_added": 0,
+      "key_issues": []
+    }
+  ],
+  "domain_patterns": {
+    "hr": [
+      {
+        "dataset": "HR Attrition v1",
+        "winner": "LogisticRegression",
+        "score": 0.5273
+      }
+    ],
+    "general": [
+      {
+        "dataset": "Country-data",
+        "winner": "Ridge Regression",
+        "score": 0.0
+      }
+    ]
+  },
+  "successful_models": {
+    "multiclass_classification": {
+      "LogisticRegression": {
+        "count": 5,
+        "avg_score": 0.35746
+      },
+      "XGBoost": {
+        "count": 2,
+        "avg_score": 0.0
+      }
+    },
+    "regression": {
+      "Ridge Regression": {
+        "count": 6,
+        "avg_score": 0.0
+      }
+    }
+  }
+}
