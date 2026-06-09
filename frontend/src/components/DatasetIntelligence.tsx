@@ -106,7 +106,7 @@ export default function DatasetIntelligence({
         <MetricCard icon={<LayoutList />} label="Rows" value={Number(intelligence.rows ?? 0).toLocaleString()} color="cyan" />
         <MetricCard icon={<Database />} label="Columns" value={String(intelligence.cols ?? "0")} color="violet" />
         <MetricCard icon={<Target />} label="Task Inference" value={String(intelligence.task_type ?? "unknown").replace("_", " ").toUpperCase()} color="amber" />
-        <MetricCard icon={<ShieldAlert />} label="Quality Score" value="92%" color="emerald" />
+        <MetricCard icon={<ShieldAlert />} label="Quality Score" value={`${Math.round(Number(intelligence.quality_score ?? 100))}%`} color={Number(intelligence.quality_score ?? 100) > 80 ? "emerald" : "amber"} />
       </div>
 
       <div className="mt-8 bg-slate-900/60 border border-slate-800 rounded-2xl p-6">

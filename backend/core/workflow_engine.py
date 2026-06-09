@@ -75,7 +75,7 @@ class WorkflowAdaptationEngine:
         self._apply_model_rules(signals, dag, user_level)
         self._apply_explainability_rules(signals, dag, user_level)
 
-        # Generate overall explanation
+        # Generate overall explanation (Rule-based primary)
         dag.explanation = self._generate_workflow_explanation(signals, dag, user_level)
         
         # Override with LLM explanation if available
@@ -83,6 +83,10 @@ class WorkflowAdaptationEngine:
             llm = LLMEngine()
             llm_exp = llm.reason_about_workflow(signals, dag.steps, user_level)
             if llm_exp and not llm_exp.startswith("[Fallback") and not llm_exp.startswith("[LLM Error"):
+                # Use the rule-based one as base, append LLM insight if we want,
+                # but llm_engine already handles fallbacks perfectly now.
+                # Since we updated llm_engine to return excellent rule-based fallbacks,
+                # we can just use llm_exp directly!
                 dag.explanation = llm_exp
         except Exception:
             pass

@@ -12,16 +12,21 @@ import threading
 import pandas as pd
 import json
 import numpy as np
+import io
 from datetime import datetime
 
 # Add backend directory to sys.path so core modules can be found
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from core.agents.orchestrator import OrchestratorAgent
+from core.agents.data import DataAgent
+from core.agents.base import MessageBus
 from core.knowledge_memory import KnowledgeBase
 from core.intent_parser import IntentParser
+from core.llm_engine import LLMEngine
+from database import SessionLocal, DBSessionState
 
-app = FastAPI(title="AWIP AI Data Science Workspace API", version="3.0.0")
+app = FastAPI(title="AWIP AI Data Science Workspace API", version="4.0.0")
 
 # CORS config to allow Next.js frontend (default port 3000)
 app.add_middleware(
@@ -36,20 +41,104 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory session state for demo purposes (ideally this goes to DB/Redis)
-session_state = {
-    "df": None,
-    "previous_df": None,
-    "dataset_name": None,
-    "datasets": [],
-    "workflow": None,
-    "signals": None,
-    "results": None,
-    "agent_messages": [],
-    "engineered_features": [],
-    "report_markdown": None,
-}
 
+# ── SESSION MANAGER ─────────────────────────────────────────────
+# Replaces the old global session_state dict with SQLite persistence.
+
+class SessionManager:
+    """SQLite-backed session state. Survives server restarts."""
+    
+    def __init__(self):
+        self._cache: Dict[str, Any] = {
+            "df": None,
+            "previous_df": None,
+            "dataset_name": None,
+            "datasets": [],
+            "workflow": None,
+            "signals": None,
+            "results": None,
+            "agent_messages": [],
+            "engineered_features": [],
+            "report_markdown": None,
+            "quality_score": None,
+            "quality_issues": [],
+        }
+        self._load_from_db()
+    
+    def _load_from_db(self):
+        """Load last session state from SQLite on server startup."""
+        db = SessionLocal()
+        try:
+            row = db.query(DBSessionState).filter_by(session_key="default").first()
+            if row:
+                if row.dataset_csv:
+                    try:
+                        self._cache["df"] = pd.read_csv(io.StringIO(row.dataset_csv))
+                    except Exception:
+                        pass
+                if row.previous_dataset_csv:
+                    try:
+                        self._cache["previous_df"] = pd.read_csv(io.StringIO(row.previous_dataset_csv))
+                    except Exception:
+                        pass
+                self._cache["dataset_name"] = row.dataset_name
+                self._cache["datasets"] = row.datasets_json or []
+                self._cache["report_markdown"] = row.report_markdown
+                self._cache["quality_score"] = row.quality_score
+                self._cache["quality_issues"] = row.quality_issues or []
+                # Note: signals, workflow, results are dataclass-based objects 
+                # that need the orchestration to re-run. We persist the raw data
+                # so the user can re-run from the last upload without re-uploading.
+        finally:
+            db.close()
+    
+    def _persist(self):
+        """Write current cache to SQLite."""
+        db = SessionLocal()
+        try:
+            row = db.query(DBSessionState).filter_by(session_key="default").first()
+            if not row:
+                row = DBSessionState(session_key="default")
+                db.add(row)
+            
+            row.dataset_name = self._cache.get("dataset_name")
+            
+            df = self._cache.get("df")
+            if df is not None:
+                row.dataset_csv = df.to_csv(index=False)
+            
+            prev_df = self._cache.get("previous_df")
+            if prev_df is not None:
+                row.previous_dataset_csv = prev_df.to_csv(index=False)
+            
+            row.datasets_json = self._cache.get("datasets", [])
+            row.report_markdown = self._cache.get("report_markdown")
+            row.quality_score = self._cache.get("quality_score")
+            row.quality_issues = self._cache.get("quality_issues", [])
+            row.updated_at = datetime.utcnow()
+            
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"[SessionManager] Persist error: {e}")
+        finally:
+            db.close()
+    
+    def __getitem__(self, key: str):
+        return self._cache[key]
+    
+    def __setitem__(self, key: str, value):
+        self._cache[key] = value
+    
+    def get(self, key: str, default=None):
+        return self._cache.get(key, default)
+    
+    def save(self):
+        """Explicitly persist to disk. Call after mutations."""
+        self._persist()
+
+
+session_state = SessionManager()
 knowledge_base = KnowledgeBase()
 intent_parser = IntentParser()
 
@@ -103,6 +192,39 @@ def _resolve_target_col(df: pd.DataFrame, target_col: Optional[str]) -> str:
         target_candidates = list(df.columns)[:4]
     return target_candidates[0] if target_candidates else df.columns[0]
 
+def _calculate_quality_score(signals) -> tuple:
+    """Calculate a 0-100 data quality score from context signals."""
+    score = 100.0
+    issues = []
+    
+    if signals.has_missing_values:
+        max_miss = max(signals.missing_columns.values()) if signals.missing_columns else 0
+        penalty = min(30, max_miss * 100)
+        score -= penalty
+        issues.append(f"Missing values detected (up to {max_miss:.0%} in a column)")
+        
+    if signals.is_imbalanced:
+        score -= 15
+        issues.append(f"Severe class imbalance ({signals.imbalance_ratio:.1f}:1)")
+        
+    if signals.has_outliers:
+        score -= 5
+        issues.append(f"Outliers detected in {len(signals.outlier_columns)} columns")
+        
+    if signals.has_multicollinearity:
+        score -= 5
+        issues.append(f"Multicollinearity ({len(signals.multicollinear_pairs)} correlated pairs)")
+        
+    if signals.task_type == "unknown":
+        score -= 20
+        issues.append("Unable to determine task type reliably")
+        
+    if signals.is_high_dimensional:
+        issues.append(f"High dimensionality ({signals.n_cols} features) increases overfitting risk")
+        
+    return max(0.0, score), issues
+
+
 def _execute_orchestration(
     target_col: Optional[str] = None,
     on_message: Optional[Callable] = None,
@@ -123,7 +245,7 @@ def _execute_orchestration(
     loop_results = orchestrator.run_iterative_loop(
         session_state["df"],
         resolved_target,
-        None,
+        session_state["previous_df"],
         domain_hint="auto-detect",
     )
 
@@ -147,6 +269,7 @@ def _execute_orchestration(
     metrics = results.get("metrics", {}) if results else {}
     score = metrics.get("accuracy", metrics.get("r2_score", 0.0))
 
+    # Save as numbered experiment in knowledge base
     knowledge_base.add_experiment(
         dataset_name=session_state["dataset_name"] or "Uploaded Dataset",
         task_type=signals.task_type,
@@ -157,6 +280,9 @@ def _execute_orchestration(
         key_issues=getattr(signals, "quality_issues", []) or [],
     )
 
+    # Persist to SQLite
+    session_state.save()
+
     workflow_dict = workflow.to_dict() if workflow else None
 
     return _json_safe({
@@ -166,17 +292,35 @@ def _execute_orchestration(
         "leaderboard": results.get("leaderboard", []) if results else [],
         "report": session_state["report_markdown"],
         "messages": [_message_to_dict(m) for m in session_state["agent_messages"]],
+        "experiment_id": knowledge_base.get_experiment_count(),
     })
+
+
+# ── ENDPOINTS ───────────────────────────────────────────────────
 
 @app.get("/")
 def read_root():
-    return {"status": "AWIP Backend Running"}
+    return {"status": "AWIP Backend Running", "version": "4.0.0"}
+
+@app.get("/api/status")
+def get_status():
+    """Reports system health including Ollama availability."""
+    ollama_available = LLMEngine.check_available()
+    exp_count = knowledge_base.get_experiment_count()
+    has_dataset = session_state["df"] is not None
+    return {
+        "backend": "running",
+        "ollama": "connected" if ollama_available else "unavailable",
+        "experiments": exp_count,
+        "dataset_loaded": has_dataset,
+        "dataset_name": session_state["dataset_name"],
+    }
+
 
 @app.post("/api/upload")
 async def upload_dataset(file: UploadFile = File(...)):
-    """Uploads a dataset and initializes the workspace."""
+    """Uploads a dataset, runs CUE analysis, returns signals + quality score."""
     content = await file.read()
-    # Save temporarily to parse into pandas
     temp_path = f"temp_{file.filename}"
     with open(temp_path, "wb") as f:
         f.write(content)
@@ -188,11 +332,16 @@ async def upload_dataset(file: UploadFile = File(...)):
         session_state["df"] = df
         session_state["dataset_name"] = file.filename
         
-        # We can trigger initial context extraction here
+        # Run CUE analysis
         from core.context_engine import ContextUnderstandingEngine
         cue = ContextUnderstandingEngine()
         signals = cue.analyze(df, target_column=None, user_intent="", domain_hint="auto-detect")
         session_state["signals"] = signals
+        
+        # Calculate real quality score
+        quality_score, quality_issues = _calculate_quality_score(signals)
+        session_state["quality_score"] = quality_score
+        session_state["quality_issues"] = quality_issues
         
         dataset_record = {
             "name": file.filename,
@@ -201,14 +350,21 @@ async def upload_dataset(file: UploadFile = File(...)):
             "task_type": signals.task_type,
             "uploaded_at": datetime.now().isoformat(),
         }
-        session_state["datasets"].append(dataset_record)
+        datasets = session_state["datasets"] or []
+        datasets.append(dataset_record)
+        session_state["datasets"] = datasets
+
+        # Persist to SQLite
+        session_state.save()
 
         return {
             "status": "success", 
             "dataset": file.filename, 
             "rows": signals.n_rows,
             "cols": signals.n_cols,
-            "task_type": signals.task_type
+            "task_type": signals.task_type,
+            "quality_score": quality_score,
+            "quality_issues": quality_issues,
         }
     finally:
         if os.path.exists(temp_path):
@@ -222,7 +378,7 @@ def orchestrate_pipeline(target_col: Optional[str] = Form(None)):
 @app.get("/api/datasets")
 def list_datasets():
     """Returns uploaded dataset history for the current workspace session."""
-    return {"datasets": session_state["datasets"], "active": session_state["dataset_name"]}
+    return {"datasets": session_state["datasets"] or [], "active": session_state["dataset_name"]}
 
 @app.get("/api/drift/compare")
 def compare_drift():
@@ -293,10 +449,75 @@ async def stream_orchestrate(target_col: Optional[str] = None):
         },
     )
 
+
+@app.post("/api/orchestrate/auto")
+async def auto_orchestrate(file: UploadFile = File(...), target_col: Optional[str] = Form(None), fmt: str = Form("pdf")):
+    """Full automation endpoint: CSV in → Analysis → Workflow → Training → 
+    Leaderboard → SHAP → Executive Report → PDF/DOCX out.
+    
+    Everything is saved as a numbered Experiment automatically.
+    
+    Pipeline:
+      1. Upload & analyze dataset (CUE)
+      2. Run full orchestration (Data → Feature → Workflow → Train → Model → Eval → SHAP → Report)
+      3. Save as Experiment #N in knowledge base
+      4. Export report as PDF or DOCX
+      5. Return the file
+    """
+    if fmt not in {"pdf", "docx"}:
+        fmt = "pdf"
+    
+    # Step 1: Upload and analyze
+    content = await file.read()
+    temp_path = f"temp_{file.filename}"
+    with open(temp_path, "wb") as f:
+        f.write(content)
+    
+    try:
+        df = pd.read_csv(temp_path)
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+    
+    if session_state["df"] is not None:
+        session_state["previous_df"] = session_state["df"].copy()
+    session_state["df"] = df
+    session_state["dataset_name"] = file.filename
+    
+    # Step 2: Full orchestration (this calls all 7 agents + saves experiment)
+    result = _execute_orchestration(target_col)
+    
+    if result.get("error"):
+        return result
+    
+    # Step 3: Export report
+    report_md = session_state["report_markdown"]
+    if not report_md:
+        report_md = f"# Experiment Report\n\nDataset: {file.filename}\n\nNo report generated."
+    
+    from core.report_generator import ReportGenerator
+    
+    exp_num = knowledge_base.get_experiment_count()
+    filename = f"AWIP_Experiment_{exp_num}.{fmt}"
+    output_path = os.path.join(os.getcwd(), filename)
+    
+    if fmt == "pdf":
+        ReportGenerator.to_pdf(report_md, output_path)
+        media_type = "application/pdf"
+    else:
+        ReportGenerator.to_docx(report_md, output_path)
+        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    
+    # Persist session
+    session_state.save()
+    
+    return FileResponse(output_path, filename=filename, media_type=media_type)
+
+
 @app.get("/api/feed")
 def get_agent_feed():
     """Returns the live agent activity feed."""
-    msgs = session_state["agent_messages"]
+    msgs = session_state["agent_messages"] or []
     return {"messages": [_message_to_dict(m) for m in msgs]}
 
 @app.post("/api/chat")
@@ -304,8 +525,6 @@ def chat_command(req: CommandRequest):
     """Processes natural language commands."""
     intent_res = intent_parser.parse_intent(req.command)
     
-    # Normally we'd process the intent and run LLM
-    from core.llm_engine import LLMEngine
     llm = LLMEngine()
     resp = llm.chat_with_context(
         req.command, 
@@ -313,7 +532,7 @@ def chat_command(req: CommandRequest):
         session_state["signals"], 
         session_state["results"],
         knowledge_base=knowledge_base,
-        agent_messages=session_state["agent_messages"]
+        agent_messages=session_state["agent_messages"] or []
     )
     
     return {
@@ -352,9 +571,10 @@ def generate_report():
         dataset_name=session_state["dataset_name"] or "Uploaded Dataset",
         task_type=session_state["signals"].task_type,
         model_results=session_state["results"],
-        features=session_state["engineered_features"],
+        features=session_state["engineered_features"] or [],
     )
     session_state["report_markdown"] = report_data.get("markdown")
+    session_state.save()
     return {"status": "success", "markdown": session_state["report_markdown"]}
 
 @app.get("/api/report/export/{fmt}")

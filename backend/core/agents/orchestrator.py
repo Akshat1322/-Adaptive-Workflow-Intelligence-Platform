@@ -3,8 +3,10 @@ AWIP — AI Data Science Team
 Orchestrator Agent
 
 The team lead. Coordinates the specialized agents, manages the MessageBus,
-and executes the Iterative Reasoning Loop. Replaces the old monolithic
-OrchestratorAgent.
+and executes the Iterative Reasoning Loop.
+
+Post-rewire: Only real agents remain. Every phase does genuine computational work.
+Agents: Data, Feature, Model, Evaluation, Explainability, Drift, Reporting.
 """
 
 import pandas as pd
@@ -17,10 +19,7 @@ from .model import ModelAgent
 from .evaluation import EvaluationAgent
 from .explainability import ExplainabilityAgent
 from .drift import DriftAgent
-from .research import ResearchAgent
-from .deployment import DeploymentAgent
 from .reporting import ReportingAgent
-from .monitoring import MonitoringAgent
 
 from ..workflow_engine import WorkflowAdaptationEngine
 from ..pipeline_executor import PipelineExecutor
@@ -33,44 +32,54 @@ class OrchestratorAgent(BaseAgent):
             message_bus = MessageBus()
         super().__init__("Orchestrator", message_bus)
         
-        # Initialize Team
+        # Initialize Team — only agents that do real work
         self.data_agent = DataAgent(self.message_bus)
         self.feature_agent = FeatureAgent(self.message_bus)
         self.model_agent = ModelAgent(self.message_bus)
         self.eval_agent = EvaluationAgent(self.message_bus)
         self.exp_agent = ExplainabilityAgent(self.message_bus)
         self.drift_agent = DriftAgent(self.message_bus)
-        self.research_agent = ResearchAgent(self.message_bus)
-        self.deployment_agent = DeploymentAgent(self.message_bus)
         self.reporting_agent = ReportingAgent(self.message_bus)
-        self.monitoring_agent = MonitoringAgent(self.message_bus)
         
         self.workflow_engine = WorkflowAdaptationEngine()
         self.executor = PipelineExecutor()
         
     def run_iterative_loop(self, df: pd.DataFrame, target_col: str, old_df: pd.DataFrame = None, domain_hint: str = "auto-detect") -> Dict[str, Any]:
-        """The main iterative reasoning loop."""
+        """The main iterative reasoning loop.
+        
+        Pipeline:
+          Phase 1: Data Investigation (CUE analysis, quality scoring)
+          Phase 2: Drift Detection (KS-test, only if previous dataset exists)
+          Phase 3: Feature Engineering (datetime extraction, correlation-based filtering)
+          Phase 4: Workflow Design (rule-engine DAG generation)
+          Phase 5: Pipeline Execution (sklearn training, cross-validation, leaderboard)
+          Phase 6: Model Selection & Tradeoff Analysis
+          Phase 7: Failure Mode Analysis (confusion matrix, F1 gaps)
+          Phase 8: Explainability (SHAP values, feature importance narratives)
+          Phase 9: Executive Report Generation
+        """
         
         self.broadcast("Initiating new dataset analysis cycle. Assembling team...")
         
         # Phase 1: Data Investigation
         signals = self.data_agent.execute(df, target_col, domain_hint)
         
+        # Phase 2: Drift Detection (only if previous data exists)
         if old_df is not None:
             self.drift_agent.execute(old_df, df, signals.numeric_columns)
             
-        # Phase 2: Feature Engineering
+        # Phase 3: Feature Engineering
         df_enhanced, features = self.feature_agent.execute(df, signals)
         
-        # Phase 3: Orchestrator reasoning (Workflow Design)
+        # Phase 4: Workflow Design
         self.broadcast("Synthesizing data and feature intelligence to design workflow DAG.")
         workflow = self.workflow_engine.generate_workflow(signals, "expert")
         
-        # Phase 4: Experiment (Execution)
+        # Phase 5: Pipeline Execution
         self.broadcast(f"Executing workflow v{workflow.version} to gather benchmark metrics.")
         results = self.executor.execute(df_enhanced, workflow, target_col, signals)
         
-        # Phase 5: Model Selection & Tradeoffs
+        # Phase 6: Model Selection & Tradeoffs
         model_insights = self.model_agent.execute(results, signals)
         if "winner" in model_insights and model_insights["winner"] != "Unknown":
             # Update workflow DAG to reflect the winner chosen by Model Agent
@@ -80,14 +89,11 @@ class OrchestratorAgent(BaseAgent):
                     step.reason = model_insights.get("reason", "Selected by Model Agent via benchmarking.")
                     break
         
-        # Phase 6: Failure Analysis
+        # Phase 7: Failure Analysis
         eval_insights = self.eval_agent.execute(results, signals)
         
-        # Phase 7: Explainability
+        # Phase 8: Explainability
         exp_insights = self.exp_agent.execute(results, signals)
-        
-        # Phase 8: Research & Best Practices
-        research_insights = self.research_agent.execute(signals, workflow, results)
         
         # Phase 9: Reporting
         report_data = self.reporting_agent.execute(
@@ -96,10 +102,6 @@ class OrchestratorAgent(BaseAgent):
             model_results=results,
             features=features
         )
-        
-        # Phase 10: Deployment & Monitoring
-        model_package = self.deployment_agent.execute(df, target_col, results)
-        monitoring_status = self.monitoring_agent.execute(model_package, df)
         
         # Final Recommendation
         confidence = 0.90

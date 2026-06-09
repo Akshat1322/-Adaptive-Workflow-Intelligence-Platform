@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, JSON, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Float, JSON, DateTime, Text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import datetime
 
@@ -38,6 +38,33 @@ class DBAgentMessage(Base):
     confidence = Column(Integer, nullable=True)
     metadata_json = Column(JSON)
     timestamp = Column(String)
+
+
+class DBSessionState(Base):
+    """Persistent session state — survives server restarts.
+    
+    Replaces the old in-memory global dict. Stores the last workspace
+    session so data is not lost on server crash or restart.
+    """
+    __tablename__ = "session_state"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_key = Column(String, unique=True, default="default")
+    dataset_name = Column(String, nullable=True)
+    dataset_csv = Column(Text, nullable=True)          # raw CSV content
+    previous_dataset_csv = Column(Text, nullable=True)  # for drift comparison
+    signals_json = Column(JSON, nullable=True)
+    workflow_json = Column(JSON, nullable=True)
+    results_json = Column(JSON, nullable=True)
+    agent_messages_json = Column(JSON, nullable=True)
+    engineered_features_json = Column(JSON, nullable=True)
+    report_markdown = Column(Text, nullable=True)
+    datasets_json = Column(JSON, nullable=True)         # upload history
+    quality_score = Column(Float, nullable=True)
+    quality_issues = Column(JSON, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 
 # Create tables
 Base.metadata.create_all(bind=engine)
