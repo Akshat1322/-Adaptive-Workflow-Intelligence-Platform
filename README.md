@@ -7,14 +7,14 @@
 
 <br />
 
+## 🔗 Live Demo
+**Try it yourself:** [AWIP Live Platform](https://adaptive-workflow-intelligence-plat-kappa.vercel.app/)
+
 ## 🛑 Problem
 Machine learning workflows involve repetitive, highly-technical boilerplate: cleaning missing data, encoding categorical variables, scaling features, tuning hyperparameters, and evaluating metrics. Data scientists spend hours on these routine tasks before generating actual insights.
 
 ## 💡 Solution
 **AWIP automates the entire pipeline.** You upload a dataset, and AWIP's 7-Agent AI system autonomously cleans the data, engineers features, trains state-of-the-art models (XGBoost, LightGBM, RandomForest), explains the results, and generates a production-ready API and Jupyter Notebook for deployment.
-
-## 🔗 Live Demo
-**Try it yourself:** [AWIP Live Platform](https://adaptive-workflow-intelligence-plat-kappa.vercel.app/)
 
 ## 💻 GitHub
 The complete source code is available here: [GitHub Repository](https://github.com/Akshat1322/-Adaptive-Workflow-Intelligence-Platform)
