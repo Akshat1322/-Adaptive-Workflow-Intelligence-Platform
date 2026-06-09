@@ -8,7 +8,7 @@ echo ===================================================
 
 echo.
 echo [1/2] Starting FastAPI Backend on Port 8000...
-start "AWIP Backend" cmd /k "cd /d %~dp0backend && uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000"
+start "AWIP Backend" cmd /k "cd /d %~dp0backend && uv pip install -r requirements.txt && uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000"
 
 echo [2/2] Waiting for backend to be ready...
 set /a attempts=0

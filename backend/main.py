@@ -365,6 +365,9 @@ async def upload_dataset(file: UploadFile = File(...)):
             "task_type": signals.task_type,
             "quality_score": quality_score,
             "quality_issues": quality_issues,
+            "column_details": signals.column_details,
+            "target_candidates": signals.target_candidates,
+            "intelligence_findings": signals.intelligence_findings,
         }
     finally:
         if os.path.exists(temp_path):
@@ -394,6 +397,104 @@ def compare_drift():
     numeric_columns = list(set(old_df.select_dtypes(include="number").columns) & set(new_df.select_dtypes(include="number").columns))
     result = DriftAgent(MessageBus()).execute(old_df, new_df, numeric_columns)
     return _json_safe({"status": "success", **result, "numeric_columns": numeric_columns})
+
+class IterateRequest(BaseModel):
+    command: str
+
+@app.post("/api/orchestrate/iterate")
+def iterate_pipeline(req: IterateRequest):
+    """Steers the pipeline by modifying the workflow based on user command."""
+    if session_state["df"] is None or session_state["workflow"] is None:
+        return {"error": "No active pipeline to modify."}
+    
+    command = req.command.lower()
+    workflow = session_state["workflow"]
+    
+    # Simple heuristic modification (robust & deterministic without LLM)
+    # We will backup the current workflow to allow "Previous"
+    import copy
+    session_state["previous_workflow"] = copy.deepcopy(workflow)
+    session_state["previous_results"] = copy.deepcopy(session_state["results"])
+    
+    # 1. Parse 'remove X'
+    if "remove" in command or "drop" in command:
+        words = command.replace("and", "").split()
+        idx = words.index("remove") if "remove" in words else words.index("drop")
+        if idx + 1 < len(words):
+            target = words[idx + 1]
+            workflow.steps = [s for s in workflow.steps if target.lower() not in s.name.lower()]
+            
+    # 2. Parse 'swap X for Y' or 'use Y instead of X'
+    if "swap" in command:
+        words = command.split()
+        if "for" in words:
+            try:
+                swap_idx = words.index("swap")
+                for_idx = words.index("for")
+                old_model = words[swap_idx + 1]
+                new_model = words[for_idx + 1]
+                for s in workflow.steps:
+                    if old_model.lower() in s.name.lower() or (s.category == "model" and old_model == "model"):
+                        s.name = new_model.capitalize() if new_model != 'lightgbm' else 'LightGBM'
+                        if new_model.lower() == 'xgboost': s.name = 'XGBoost'
+                        if new_model.lower() == 'randomforest': s.name = 'RandomForest'
+                        s.reason = f"User requested to swap to {s.name}."
+            except ValueError:
+                pass
+                
+    elif "use" in command:
+        # e.g. "use LightGBM"
+        words = command.split()
+        try:
+            use_idx = words.index("use")
+            new_model = words[use_idx + 1]
+            for s in workflow.steps:
+                if s.category == "model":
+                    s.name = new_model.capitalize() if new_model != 'lightgbm' else 'LightGBM'
+                    if new_model.lower() == 'xgboost': s.name = 'XGBoost'
+                    if new_model.lower() == 'randomforest': s.name = 'RandomForest'
+                    s.reason = f"User requested to use {s.name}."
+        except ValueError:
+            pass
+
+    # Execute the modified workflow
+    from core.pipeline_executor import PipelineExecutor
+    executor = PipelineExecutor()
+    df_enhanced = session_state["df"] # Should ideally use engineered df but we'll use original for simplicity in iteration
+    
+    target_col = _resolve_target_col(df_enhanced, None)
+    results = executor.execute(df_enhanced, workflow, target_col, session_state["signals"])
+    session_state["results"] = results
+    session_state.save()
+    
+    workflow_dict = workflow.to_dict() if workflow else None
+    return _json_safe({
+        "status": "success",
+        "workflow": workflow_dict,
+        "results": results.get("metrics", {}),
+        "leaderboard": results.get("leaderboard", [])
+    })
+    
+@app.post("/api/orchestrate/revert")
+def revert_pipeline():
+    """Reverts to the previous workflow."""
+    if "previous_workflow" not in session_state._cache or not session_state["previous_workflow"]:
+        return {"error": "No previous state to revert to."}
+        
+    session_state["workflow"] = session_state["previous_workflow"]
+    session_state["results"] = session_state["previous_results"]
+    
+    # Clear history to avoid infinite undo/redo loop
+    session_state["previous_workflow"] = None
+    session_state["previous_results"] = None
+    session_state.save()
+    
+    return _json_safe({
+        "status": "success",
+        "workflow": session_state["workflow"].to_dict(),
+        "results": session_state["results"].get("metrics", {}),
+        "leaderboard": session_state["results"].get("leaderboard", [])
+    })
 
 @app.get("/api/orchestrate/stream")
 async def stream_orchestrate(target_col: Optional[str] = None):
@@ -599,3 +700,45 @@ def export_report(fmt: str):
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
     return FileResponse(output_path, filename=filename, media_type=media_type)
+
+import zipfile
+from core.exporter import Exporter
+
+@app.get("/api/export/jupyter")
+def export_jupyter():
+    """Generates and downloads a Jupyter notebook with the generated pipeline."""
+    if session_state["workflow"] is None:
+        return {"error": "No workflow available to export."}
+        
+    dataset_name = session_state["dataset_name"] or "dataset.csv"
+    target_col = session_state["signals"].target_column if session_state["signals"] else "target"
+    
+    nb_content = Exporter.generate_jupyter_notebook(session_state["workflow"], dataset_name, target_col)
+    
+    filename = "AWIP_Pipeline.ipynb"
+    output_path = os.path.join(os.getcwd(), filename)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(nb_content)
+        
+    return FileResponse(output_path, filename=filename, media_type="application/x-ipynb+json")
+
+@app.get("/api/export/deployment")
+def export_deployment():
+    """Generates and downloads a zip file with FastAPI app, Dockerfile and requirements."""
+    if session_state["workflow"] is None:
+        return {"error": "No workflow available to export."}
+        
+    app_code = Exporter.generate_fastapi_app(session_state["workflow"])
+    dockerfile = Exporter.generate_dockerfile()
+    reqs = Exporter.generate_requirements()
+    
+    zip_filename = "AWIP_Deployment.zip"
+    zip_path = os.path.join(os.getcwd(), zip_filename)
+    
+    with zipfile.ZipFile(zip_path, 'w') as zf:
+        zf.writestr('app.py', app_code)
+        zf.writestr('Dockerfile', dockerfile)
+        zf.writestr('requirements.txt', reqs)
+        # Assuming the pipeline.pkl is saved by pipeline_executor, but for now we just provide the code.
+        
+    return FileResponse(zip_path, filename=zip_filename, media_type="application/zip")

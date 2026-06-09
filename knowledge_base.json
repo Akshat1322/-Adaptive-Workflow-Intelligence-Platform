@@ -144,6 +144,94 @@
       "score": 0.0,
       "features_added": 0,
       "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_154801",
+      "timestamp": "2026-06-09T15:48:01.333238",
+      "dataset_name": "Country-data.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": 0.0,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_163043",
+      "timestamp": "2026-06-09T16:30:43.890668",
+      "dataset_name": "Country-data.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": 0.7968,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_163419",
+      "timestamp": "2026-06-09T16:34:19.283474",
+      "dataset_name": "Country-data.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": 0.7968,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_164116",
+      "timestamp": "2026-06-09T16:41:16.100905",
+      "dataset_name": "Country-data.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": 0.7968,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_165332",
+      "timestamp": "2026-06-09T16:53:32.942357",
+      "dataset_name": "Country-data.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": 0.7968,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_165908",
+      "timestamp": "2026-06-09T16:59:08.472657",
+      "dataset_name": "tesla_deliveries_dataset_2015_2025.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": -0.0037,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_174044",
+      "timestamp": "2026-06-09T17:40:44.251183",
+      "dataset_name": "tesla_deliveries_dataset_2015_2025.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": -0.0037,
+      "features_added": 0,
+      "key_issues": []
+    },
+    {
+      "id": "EXP_20260609_180228",
+      "timestamp": "2026-06-09T18:02:28.239773",
+      "dataset_name": "tesla_deliveries_dataset_2015_2025.csv",
+      "task_type": "regression",
+      "domain": "auto-detect",
+      "winner_model": "Ridge Regression",
+      "score": -0.0037,
+      "features_added": 0,
+      "key_issues": []
     }
   ],
   "domain_patterns": {
@@ -175,8 +263,8 @@
     },
     "regression": {
       "Ridge Regression": {
-        "count": 6,
-        "avg_score": 0.0
+        "count": 14,
+        "avg_score": 0.2268642857142857
       }
     }
   }

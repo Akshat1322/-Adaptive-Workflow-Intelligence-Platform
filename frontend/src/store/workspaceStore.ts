@@ -41,26 +41,21 @@ export interface ChatMessage {
 }
 
 export interface WorkspaceState {
+  activeView: 'explore' | 'pipeline' | 'results' | 'reasoning' | 'overview'
   datasetIntelligence: Record<string, unknown> | null
   workflow: { steps: WorkflowStep[] } | null
   leaderboard: ExperimentResult[]
   agentMessages: AgentMessage[]
-  chatMessages: ChatMessage[]
-  knowledgeResults: KnowledgeCard[]
-  reportMarkdown: string | null
   orchestrationMetrics: Record<string, unknown> | null
   isOrchestrating: boolean
   isUploading: boolean
+  setActiveView: (view: 'explore' | 'pipeline' | 'results' | 'reasoning' | 'overview') => void
   setDatasetIntelligence: (data: Record<string, unknown>) => void
   setWorkflow: (workflow: { steps: WorkflowStep[] } | null) => void
   setLeaderboard: (leaderboard: ExperimentResult[]) => void
   setAgentMessages: (messages: AgentMessage[]) => void
   appendAgentMessage: (message: AgentMessage) => void
   clearAgentMessages: () => void
-  appendChatMessage: (message: ChatMessage) => void
-  clearChatMessages: () => void
-  setKnowledgeResults: (results: KnowledgeCard[]) => void
-  setReportMarkdown: (markdown: string | null) => void
   setOrchestrationMetrics: (metrics: Record<string, unknown> | null) => void
   setIsOrchestrating: (isOrchestrating: boolean) => void
   setIsUploading: (isUploading: boolean) => void
@@ -68,22 +63,20 @@ export interface WorkspaceState {
     workflow?: { steps: WorkflowStep[] } | null
     leaderboard?: ExperimentResult[]
     results?: Record<string, unknown>
-    report?: string | null
     messages?: AgentMessage[]
   }) => void
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set) => ({
+  activeView: 'explore',
   datasetIntelligence: null,
   workflow: null,
   leaderboard: [],
   agentMessages: [],
-  chatMessages: [],
-  knowledgeResults: [],
-  reportMarkdown: null,
   orchestrationMetrics: null,
   isOrchestrating: false,
   isUploading: false,
+  setActiveView: (view) => set({ activeView: view }),
   setDatasetIntelligence: (data) => set({ datasetIntelligence: data }),
   setWorkflow: (workflow) => set({ workflow }),
   setLeaderboard: (leaderboard) => set({ leaderboard }),
@@ -91,11 +84,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   appendAgentMessage: (message) =>
     set((state) => ({ agentMessages: [...state.agentMessages, message] })),
   clearAgentMessages: () => set({ agentMessages: [] }),
-  appendChatMessage: (message) =>
-    set((state) => ({ chatMessages: [...state.chatMessages, message] })),
-  clearChatMessages: () => set({ chatMessages: [] }),
-  setKnowledgeResults: (results) => set({ knowledgeResults: results }),
-  setReportMarkdown: (markdown) => set({ reportMarkdown: markdown }),
   setOrchestrationMetrics: (metrics) => set({ orchestrationMetrics: metrics }),
   setIsOrchestrating: (isOrchestrating) => set({ isOrchestrating }),
   setIsUploading: (isUploading) => set({ isUploading }),
@@ -104,7 +92,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
       workflow: data.workflow ?? null,
       leaderboard: data.leaderboard ?? [],
       orchestrationMetrics: data.results ?? null,
-      reportMarkdown: data.report ?? null,
       agentMessages: data.messages ?? [],
     }),
 }))

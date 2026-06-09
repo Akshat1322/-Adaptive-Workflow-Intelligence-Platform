@@ -9,7 +9,7 @@ and generates structured context signals for the Workflow Adaptation Engine.
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from scipy import stats
 
 
@@ -45,6 +45,11 @@ class ContextSignals:
     numeric_summary: Dict = field(default_factory=dict)
     class_distribution: Dict = field(default_factory=dict)
     feature_types_summary: Dict = field(default_factory=dict)
+    
+    # New UI requirements
+    column_details: List[Dict[str, Any]] = field(default_factory=list)
+    target_candidates: List[Dict[str, Any]] = field(default_factory=list)
+    intelligence_findings: List[str] = field(default_factory=list)
 
     def to_dict(self):
         return asdict(self)
@@ -143,6 +148,15 @@ class ContextUnderstandingEngine:
             "boolean": len(signals.boolean_columns),
         }
 
+        # Extract detailed column info for Explore UI
+        signals.column_details = self._extract_column_details(df, signals)
+        
+        # Determine target candidates
+        signals.target_candidates = self._find_target_candidates(df)
+        
+        # Generate human readable intelligence findings
+        signals.intelligence_findings = self._generate_intelligence_findings(signals)
+
         return signals
 
     def detect_drift(self, df_old: pd.DataFrame, df_new: pd.DataFrame, num_cols: List[str]) -> Dict[str, Dict]:
@@ -161,6 +175,96 @@ class ContextUnderstandingEngine:
                         "drift_detected": bool(is_drift)
                     }
         return drift_results
+
+    def _extract_column_details(self, df: pd.DataFrame, signals: ContextSignals) -> List[Dict]:
+        """Extract rich column details for the Data Exploration UI."""
+        details = []
+        for col in df.columns:
+            dtype = str(df[col].dtype)
+            missing_pct = float(df[col].isnull().mean())
+            unique_count = df[col].nunique()
+            
+            if col in signals.numeric_columns:
+                col_type = "Numeric"
+                metrics = {"min": float(df[col].min()), "max": float(df[col].max()), "mean": float(df[col].mean())} if not df[col].empty else {}
+            elif col in signals.categorical_columns or col in signals.boolean_columns:
+                col_type = "Categorical"
+                metrics = {"categories": list(df[col].dropna().unique())[:5]}
+            elif col in signals.datetime_columns:
+                col_type = "DateTime"
+                metrics = {}
+            else:
+                col_type = "Text"
+                metrics = {}
+
+            details.append({
+                "name": col,
+                "type": col_type,
+                "missing_pct": round(missing_pct * 100, 1),
+                "unique_count": unique_count,
+                "dtype": dtype,
+                "metrics": metrics
+            })
+        return details
+
+    def _find_target_candidates(self, df: pd.DataFrame) -> List[Dict]:
+        """Identify potential target columns and score them."""
+        candidates = []
+        target_keywords = ['target', 'label', 'class', 'status', 'churn', 'attrition', 'outcome', 'result', 'price', 'sales']
+        
+        for col in df.columns:
+            score = 0
+            n_unique = df[col].nunique()
+            missing = df[col].isnull().mean()
+            
+            # Penalize highly missing columns
+            if missing > 0.5:
+                continue
+                
+            # Bonus for naming conventions
+            if any(kw in col.lower() for kw in target_keywords):
+                score += 50
+                
+            # Bonus for typical classification cardinality
+            if 2 <= n_unique <= 10:
+                score += 30
+            elif pd.api.types.is_numeric_dtype(df[col]) and n_unique > 20:
+                score += 15 # Regression candidate
+                
+            if score > 0:
+                candidates.append({"name": col, "confidence": min(99, score + int((1 - missing) * 10))})
+                
+        # Sort by confidence
+        candidates.sort(key=lambda x: x["confidence"], reverse=True)
+        return candidates[:3]
+        
+    def _generate_intelligence_findings(self, signals: ContextSignals) -> List[str]:
+        """Generate human-readable bullet points of dataset findings."""
+        findings = []
+        
+        if signals.task_type != "unknown":
+            findings.append(f"Dataset appears suitable for {signals.task_type.replace('_', ' ')}.")
+        
+        if signals.is_imbalanced:
+            findings.append(f"Severe class imbalance detected ({signals.imbalance_ratio:.1f}:1 ratio).")
+            
+        if signals.has_missing_values:
+            n_missing = len(signals.missing_columns)
+            findings.append(f"{n_missing} column{'s' if n_missing > 1 else ''} contain missing values.")
+            
+        if signals.has_outliers:
+            findings.append(f"Significant outliers detected in {len(signals.outlier_columns)} numeric columns.")
+            
+        if signals.has_high_cardinality:
+            findings.append(f"High cardinality features found, which may require target encoding.")
+            
+        if signals.has_multicollinearity:
+            findings.append(f"Found {len(signals.multicollinear_pairs)} pairs of highly correlated features.")
+            
+        if not findings:
+            findings.append("Dataset is clean and well-structured.")
+            
+        return findings
 
     def _classify_columns(self, df: pd.DataFrame, signals: ContextSignals):
         """Classify each column by its data type."""
