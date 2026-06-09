@@ -56,3 +56,6 @@ backend/awip.db
 *.docx
 *.csv
 *.zip
+
+# Force include frontend lib (overrides global Python lib/ ignore)
+!frontend/src/lib/
