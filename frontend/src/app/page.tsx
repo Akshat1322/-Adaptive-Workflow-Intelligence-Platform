@@ -27,94 +27,97 @@ export default function WorkspacePage() {
   }, [isOrchestrating, datasetIntelligence, activeView, setActiveView])
 
   return (
-    <div className="flex h-screen w-full bg-[#030303] text-neutral-200 font-sans overflow-hidden selection:bg-red-500/30">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#030303] text-neutral-200 font-sans overflow-hidden selection:bg-red-500/30">
       
       {/* ── LEFT PANEL: Navigation ── */}
-      <aside className="w-[260px] flex flex-col bg-[#0A0A0A] border-r border-neutral-800/60 p-5 shrink-0 shadow-2xl z-10">
-        <div className="flex items-center gap-3 mb-10 px-2 mt-2">
+      <aside className="w-full md:w-[260px] h-auto md:h-full flex flex-row md:flex-col items-center md:items-stretch bg-[#0A0A0A] border-b md:border-r md:border-b-0 border-neutral-800/60 p-2 md:p-5 shrink-0 shadow-2xl z-20">
+        <div className="flex items-center gap-2 md:gap-3 md:mb-10 px-2 shrink-0 mr-4 md:mr-0">
           <div className="bg-gradient-to-br from-red-500 to-red-700 p-2 rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(225,29,72,0.3)]">
             <Database className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-xl tracking-tight text-neutral-100">AWIP</span>
+          <span className="font-bold text-xl tracking-tight text-neutral-100 hidden md:block">AWIP</span>
         </div>
 
-        <div className="mb-3 px-3 text-[11px] uppercase tracking-widest font-semibold text-neutral-500">
+        <div className="hidden md:block mb-3 px-3 text-[11px] uppercase tracking-widest font-semibold text-neutral-500">
           Workspace
         </div>
 
-        <nav className="flex-1 space-y-1.5">
+        <nav className="flex flex-row md:flex-col flex-1 gap-1 md:gap-0 md:space-y-1.5 overflow-x-auto hide-scrollbar items-center md:items-stretch">
           <NavItem 
-            icon={<LayoutDashboard />} 
+            icon={<LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" />} 
             label="Overview" 
             active={activeView === "overview"} 
             onClick={() => setActiveView("overview")}
             disabled={!datasetIntelligence || isOrchestrating}
           />
           <NavItem 
-            icon={<Database />} 
+            icon={<Database className="w-4 h-4 md:w-5 md:h-5" />} 
             label="Explore Dataset" 
             active={activeView === "explore"} 
             onClick={() => setActiveView("explore")} 
           />
           <NavItem 
-            icon={<Activity />} 
+            icon={<Activity className="w-4 h-4 md:w-5 md:h-5" />} 
             label="Pipeline" 
             active={activeView === "pipeline"} 
             onClick={() => setActiveView("pipeline")}
-            disabled={!datasetIntelligence || isOrchestrating}
+            disabled={!useWorkspaceStore.getState().workflow}
           />
           <NavItem 
-            icon={<Beaker />} 
+            icon={<Beaker className="w-4 h-4 md:w-5 md:h-5" />} 
             label="Results" 
             active={activeView === "results"} 
             onClick={() => setActiveView("results")}
-            disabled={!datasetIntelligence || isOrchestrating}
+            disabled={!useWorkspaceStore.getState().workflow}
           />
           <NavItem 
-            icon={<Code2 />} 
+            icon={<Code2 className="w-4 h-4 md:w-5 md:h-5" />} 
             label="Code & Reasoning" 
             active={activeView === "reasoning"} 
             onClick={() => setActiveView("reasoning")}
-            disabled={!datasetIntelligence || isOrchestrating}
+            disabled={!datasetIntelligence}
           />
         </nav>
-
-        <div className="mt-auto pt-4 border-t border-neutral-800/60">
-          <NavItem 
-            icon={<Settings />} 
-            label="Settings" 
-            active={false} 
-            onClick={() => {}} 
-          />
-        </div>
       </aside>
 
-      {/* ── MAIN PANEL: Workspace ── */}
-      <main className="flex-1 flex flex-col relative overflow-hidden bg-[#050505]">
-        {/* Subtle top gradient for depth */}
-        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
+      {/* ── MAIN CONTENT AREA ── */}
+      <main className="flex-1 flex flex-col h-full bg-[#050505] relative overflow-hidden">
+        {/* Subtle grid background */}
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none opacity-50"></div>
         
-        <div className="flex-1 overflow-y-auto p-10 relative">
+        <div className="flex-1 overflow-y-auto p-4 md:p-10 z-10 custom-scrollbar">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeView}
-              initial={{ opacity: 0, y: 15 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="h-full max-w-6xl mx-auto"
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="h-full w-full max-w-7xl mx-auto"
             >
-              {activeView === "overview" && <OverviewView />}
               {activeView === "explore" && <ExploreView />}
               {activeView === "pipeline" && <PipelineView />}
               {activeView === "results" && <ResultsView />}
               {activeView === "reasoning" && <ReasoningView />}
+              {activeView === "overview" && <OverviewView />}
             </motion.div>
           </AnimatePresence>
         </div>
       </main>
 
       <ToastContainer />
+
+      {/* Global CSS for hidden scrollbar on mobile nav */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}} />
     </div>
   )
 }
@@ -136,7 +139,7 @@ function NavItem({
     <button 
       onClick={onClick}
       disabled={disabled}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative overflow-hidden ${
+      className={`w-auto md:w-full shrink-0 flex items-center gap-2 md:gap-3 px-3 md:px-3 py-2 md:py-2.5 rounded-lg text-[13px] md:text-sm font-medium transition-all duration-200 group relative overflow-hidden ${
         active 
           ? "text-neutral-100 bg-white/[0.06] shadow-sm" 
           : disabled
@@ -147,11 +150,11 @@ function NavItem({
       {active && (
         <motion.div 
           layoutId="activeNavIndicator"
-          className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-red-500 rounded-r-full shadow-[0_0_8px_rgba(239,68,68,0.5)]" 
+          className="absolute left-0 bottom-0 md:top-1/4 md:bottom-1/4 h-1 w-full md:w-1 md:h-auto bg-red-500 rounded-t-sm md:rounded-t-none md:rounded-r-full shadow-[0_0_8px_rgba(239,68,68,0.5)]" 
         />
       )}
-      <span className={`opacity-80 scale-90 transition-colors ${active ? "text-red-400" : "group-hover:text-neutral-300"}`}>{icon}</span>
-      <span>{label}</span>
+      <span className={`opacity-80 transition-colors ${active ? "text-red-400" : "group-hover:text-neutral-300"}`}>{icon}</span>
+      <span className="whitespace-nowrap">{label}</span>
     </button>
   )
 }
